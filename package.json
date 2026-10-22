@@ -1,0 +1,15 @@
+{
+  "name": "stakeholder-map-webapp",
+  "version": "1.0.0",
+  "description": "Internal stakeholder map for Aiven's Developer Services / Platform / Data Services domains, synced from Notion.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}

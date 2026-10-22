@@ -1,0 +1,7 @@
+node_modules/
+.env
+.env.*
+!.env.example
+# offline preview data: a copy of company org data, keep it out of the repo
+snapshot.json
+.DS_Store

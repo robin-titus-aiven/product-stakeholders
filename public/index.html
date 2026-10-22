@@ -1,0 +1,1127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Who owns what</title>
+<style>
+  :root{
+    --ink:#1B1F23;
+    --ink-soft:#5B6169;
+    --bg:#FAFAF8;
+    --card:#FFFFFF;
+    --line:#E4E2DC;
+    --dev:#2F7A6B;
+    --dev-bg:#EAF3F0;
+    --plat:#A8791C;
+    --plat-bg:#F7EFDE;
+    --data:#7A4B6E;
+    --data-bg:#F3EBF0;
+    --gap-empty:#C7C3BB;
+    --role-pm:#3B6FA0;
+    --role-em:#4E8B63;
+    --role-design:#A6553C;
+    --role-tw:#6B5B95;
+    --role-dir:#B0445F;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:none; width:100%; margin:0 auto; padding:40px 40px 80px;}
+
+  header h1{
+    font-family:Georgia,"Iowan Old Style","Palatino Linotype",serif;
+    font-size:34px;
+    font-weight:600;
+    margin:0 0 6px;
+    letter-spacing:-0.01em;
+  }
+  header p{
+    margin:0 0 28px;
+    color:var(--ink-soft);
+    font-size:15px;
+    max-width:560px;
+    line-height:1.5;
+  }
+
+  .controls{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    align-items:center;
+    margin-bottom:28px;
+    position:sticky;
+    top:0;
+    background:var(--bg);
+    padding:12px 0;
+    z-index:5;
+  }
+  #search{
+    flex:1 1 220px;
+    padding:10px 14px;
+    border:1px solid var(--line);
+    border-radius:8px;
+    font-size:14px;
+    background:var(--card);
+    color:var(--ink);
+  }
+  #search:focus{outline:2px solid var(--ink); outline-offset:-1px;}
+  .chip{
+    padding:8px 14px;
+    border-radius:20px;
+    border:1px solid var(--line);
+    background:var(--card);
+    font-size:13px;
+    cursor:pointer;
+    color:var(--ink-soft);
+    user-select:none;
+  }
+  .chip[aria-pressed="true"]{
+    background:var(--ink);
+    color:#fff;
+    border-color:var(--ink);
+  }
+
+  .stat{
+    font-size:13px;
+    color:var(--ink-soft);
+    margin-bottom:18px;
+  }
+
+  .domain{margin-bottom:36px;}
+  .domain-head{
+    display:flex;
+    align-items:baseline;
+    gap:10px;
+    padding-bottom:8px;
+    border-bottom:2px solid var(--line);
+    margin-bottom:14px;
+  }
+  .domain-head h2{
+    font-family:Georgia,"Iowan Old Style","Palatino Linotype",serif;
+    font-size:20px;
+    margin:0;
+  }
+  .domain-head .lead{font-size:13px; color:var(--ink-soft);}
+  .domain.dev .domain-head{border-color:var(--dev);}
+  .domain.plat .domain-head{border-color:var(--plat);}
+  .domain.data .domain-head{border-color:var(--data);}
+
+  .area{margin-bottom:20px;}
+  .area-head{
+    display:flex;
+    align-items:baseline;
+    gap:8px;
+    margin-bottom:10px;
+    font-size:14px;
+  }
+  .area-head .name{font-weight:600;}
+  .area-head .director{color:var(--ink-soft); font-size:13px;}
+
+  .legend{
+    display:flex;
+    gap:16px;
+    flex-wrap:wrap;
+    font-size:12.5px;
+    color:var(--ink-soft);
+    margin:-6px 0 22px;
+  }
+  .legend span{display:inline-flex; align-items:center; gap:6px;}
+  .legend .dot{width:9px; height:9px; border-radius:50%; display:inline-block;}
+  .legend .dot.pm{background:var(--role-pm);}
+  .legend .dot.em{background:var(--role-em);}
+  .legend .dot.design{background:var(--role-design);}
+  .legend .dot.tw{background:var(--role-tw);}
+  .legend .dot.dir{background:var(--role-dir);}
+
+  .teams{
+    display:grid;
+    grid-template-columns:repeat(auto-fill, minmax(300px,1fr));
+    gap:16px;
+  }
+
+  /* --- flip card: front = roles, back = full engineering team + Jira --- */
+  .team{
+    position:relative;
+    perspective:1400px;
+    cursor:pointer;
+    outline:none;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .team-inner{
+    display:grid;            /* both faces share one cell, so the card is as tall as the taller face */
+    height:100%;
+    transform-style:preserve-3d;
+    transition:transform .8s cubic-bezier(.45,.05,.2,1);
+  }
+  .team.flipped .team-inner{transform:rotateY(180deg);}
+  .team-face{
+    grid-area:1 / 1;
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:18px 20px;
+    border-left:4px solid var(--gap-empty);
+    -webkit-backface-visibility:hidden;
+    backface-visibility:hidden;
+    transition:box-shadow .25s ease, border-color .25s ease;
+  }
+  .team-back{
+    transform:rotateY(180deg);
+    display:flex;
+    flex-direction:column;
+    pointer-events:none;
+  }
+  .team.flipped .team-back{pointer-events:auto;}
+  .team.flipped .team-front{pointer-events:none;}
+  .team:hover .team-face,
+  .team:focus-visible .team-face{box-shadow:0 8px 24px rgba(27,31,35,.10);}
+  .team:focus-visible .team-face{border-color:var(--ink);}
+  .domain.dev .team-face{border-left-color:var(--dev);}
+  .domain.plat .team-face{border-left-color:var(--plat);}
+  .domain.data .team-face{border-left-color:var(--data);}
+  .domain.dev .team-back{background:var(--dev-bg);}
+  .domain.plat .team-back{background:var(--plat-bg);}
+  .domain.data .team-back{background:var(--data-bg);}
+  .team-back .member-chip{background:var(--card);}
+  @media (prefers-reduced-motion: reduce){
+    .team-inner{transition:none;}
+  }
+
+  .back-head{margin-bottom:14px;}
+  .back-head h3{margin:0 0 2px;}
+  .back-sub{font-size:12px; color:var(--ink-soft);}
+  .back-footer{
+    margin-top:auto;
+    padding-top:16px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+  }
+  .back-footer .jira-link{margin-top:0;}
+  .flip-cue{
+    margin-left:auto;
+    font-size:12px;
+    color:var(--ink-soft);
+    white-space:nowrap;
+  }
+
+  .team h3{
+    margin:0 0 6px;
+    font-size:14.5px;
+    font-weight:600;
+  }
+
+  .area-line{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    gap:4px 8px;
+    margin-bottom:12px;
+  }
+  .led-by{
+    font-size:12px;
+    color:var(--ink-soft);
+  }
+  .area-chip{
+    display:inline-block;
+    font-size:11px;
+    font-weight:600;
+    padding:2px 9px;
+    border-radius:20px;
+    background:var(--bg);
+    color:var(--ink-soft);
+    border:1px solid var(--line);
+  }
+  .domain.dev .area-chip{background:var(--dev-bg); color:var(--dev); border-color:transparent;}
+  .domain.plat .area-chip{background:var(--plat-bg); color:var(--plat); border-color:transparent;}
+  .domain.data .area-chip{background:var(--data-bg); color:var(--data); border-color:transparent;}
+
+  .eng-team-row{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin-top:10px;
+    padding-top:10px;
+    border-top:1px solid var(--line);
+  }
+  .eng-team-row .role-label{flex:0 0 58px;}
+  .eng-stack{
+    display:flex;
+    flex:1;
+    min-width:0;
+    overflow:hidden;
+  }
+  .eng-stack img, .eng-stack .avatar-empty{
+    width:24px; height:24px; border-radius:50%;
+    border:2px solid var(--card);
+    margin-left:-8px;
+    object-fit:cover;
+    background:var(--line);
+    flex:0 0 auto;
+  }
+  .eng-stack :first-child{margin-left:0;}
+  .eng-stack .eng-overflow{
+    display:flex;
+    align-items:center;
+    padding-left:12px;
+    font-size:11.5px;
+    color:var(--ink-soft);
+    white-space:nowrap;
+  }
+  .eng-team-empty{
+    flex:1;
+    font-size:12.5px;
+    color:var(--gap-empty);
+    font-style:italic;
+  }
+  .members-list{
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px;
+  }
+  .member-chip{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    background:var(--bg);
+    border:1px solid var(--line);
+    border-radius:20px;
+    padding:3px 10px 3px 3px;
+    font-size:12px;
+    font-weight:500;
+    white-space:nowrap;
+  }
+  .member-avatar{
+    width:18px; height:18px; border-radius:50%;
+    object-fit:cover; background:var(--line); display:block;
+  }
+  .member-avatar-empty{
+    width:18px; height:18px; border-radius:50%;
+    border:1.5px dashed var(--gap-empty); display:block;
+  }
+  .jira-link{
+    display:inline-flex;
+    align-items:center;
+    gap:4px;
+    margin-top:10px;
+    font-size:12.5px;
+    font-weight:600;
+    color:var(--ink);
+    text-decoration:none;
+    border-bottom:1px solid var(--ink);
+    padding-bottom:1px;
+  }
+  .jira-link:hover{opacity:0.7;}
+  .role-row{
+    display:grid;
+    grid-template-columns:58px 30px 1fr;
+    align-items:center;
+    column-gap:10px;
+    font-size:13px;
+    padding:5px 0;
+  }
+  .role-label{
+    font-weight:600;
+    font-size:11px;
+    letter-spacing:.02em;
+  }
+  .role-label.pm{color:var(--role-pm);}
+  .role-label.em{color:var(--role-em);}
+  .role-label.design{color:var(--role-design);}
+  .role-label.tw{color:var(--role-tw);}
+  .role-label.dir{color:var(--role-dir);}
+
+  .avatar{
+    width:28px;
+    height:28px;
+    border-radius:50%;
+    object-fit:cover;
+    background:var(--line);
+    display:block;
+    border:2px solid transparent;
+  }
+  .avatar.pm{border-color:var(--role-pm);}
+  .avatar.em{border-color:var(--role-em);}
+  .avatar.design{border-color:var(--role-design);}
+  .avatar.tw{border-color:var(--role-tw);}
+  .avatar.dir{border-color:var(--role-dir);}
+
+  .avatar-empty{
+    width:28px;
+    height:28px;
+    border-radius:50%;
+    border:1.5px dashed var(--gap-empty);
+    background:transparent;
+    display:block;
+  }
+  .avatar-empty.pm{border-color:var(--role-pm); opacity:.45;}
+  .avatar-empty.em{border-color:var(--role-em); opacity:.45;}
+  .avatar-empty.design{border-color:var(--role-design); opacity:.45;}
+  .avatar-empty.tw{border-color:var(--role-tw); opacity:.45;}
+  .avatar-empty.dir{border-color:var(--role-dir); opacity:.45;}
+
+  .role-name{
+    text-align:left;
+    font-weight:500;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    min-width:0;
+  }
+  .role-name.empty{
+    color:var(--gap-empty);
+    font-style:italic;
+    font-weight:400;
+  }
+
+  .team.dimmed{opacity:0.18; pointer-events:none;}
+  .empty-state{
+    text-align:center;
+    color:var(--ink-soft);
+    padding:60px 0;
+    font-size:14px;
+    display:none;
+  }
+
+  /* view switch */
+  .view-switch{
+    display:flex;
+    border:1px solid var(--line);
+    border-radius:8px;
+    overflow:hidden;
+    margin-left:auto;
+  }
+  .view-switch button{
+    border:none;
+    background:var(--card);
+    padding:9px 16px;
+    font-size:13px;
+    cursor:pointer;
+    color:var(--ink-soft);
+  }
+  .view-switch button + button{border-left:1px solid var(--line);}
+  .view-switch button[aria-pressed="true"]{background:var(--ink); color:#fff;}
+
+  /* tree view */
+  #treeView{display:none;}
+  .tree-row{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:10px 12px;
+    border-radius:8px;
+    cursor:pointer;
+    user-select:none;
+  }
+  .tree-row:hover{background:var(--card);}
+  .chevron{
+    width:9px;
+    height:9px;
+    border-right:2px solid var(--ink-soft);
+    border-bottom:2px solid var(--ink-soft);
+    transform:rotate(-45deg);
+    transition:transform .15s ease;
+    flex:0 0 auto;
+    margin-left:2px;
+  }
+  .tree-node.open > .tree-row .chevron{transform:rotate(45deg);}
+  .tree-row .label{font-weight:600; font-size:14.5px;}
+  .tree-row .meta{font-size:12.5px; color:var(--ink-soft);}
+  .stack{display:flex; margin-left:auto; flex:0 0 auto;}
+  .stack img, .stack .avatar-empty{
+    width:22px; height:22px; border-radius:50%;
+    border:2px solid var(--bg);
+    margin-left:-8px;
+    object-fit:cover;
+    background:var(--line);
+  }
+  .stack img.pm{border-color:var(--role-pm);}
+  .stack img.em{border-color:var(--role-em);}
+  .stack img.design{border-color:var(--role-design);}
+  .stack img.tw{border-color:var(--role-tw);}
+  .stack :first-child{margin-left:0;}
+
+  .tree-node[data-level="0"] > .tree-row{background:var(--card); border:1px solid var(--line);}
+  .tree-node[data-level="0"].dev > .tree-row{border-left:4px solid var(--dev);}
+  .tree-node[data-level="0"].plat > .tree-row{border-left:4px solid var(--plat);}
+  .tree-node[data-level="0"].data > .tree-row{border-left:4px solid var(--data);}
+  .tree-node[data-level="0"]{margin-bottom:8px;}
+
+  .tree-children{
+    padding-left:26px;
+    display:none;
+    border-left:1px dashed var(--line);
+    margin-left:14px;
+  }
+  .tree-node.open > .tree-children{display:block;}
+  .tree-node[data-level="1"] .tree-row .label{font-weight:600; font-size:13.5px;}
+  .tree-node[data-level="2"] .tree-row .label{font-weight:500; font-size:13.5px;}
+
+  .team-detail{padding:6px 12px 14px 34px;}
+  .team-detail .role-row{padding:5px 0;}
+
+  .tree-node.dimmed{display:none;}
+
+  /* canvas view */
+  #canvasView{display:none;}
+  .canvas-viewport{
+    position:relative;
+    width:100%;
+    height:70vh;
+    min-height:480px;
+    overflow:hidden;
+    border:1px solid var(--line);
+    border-radius:12px;
+    background:
+      linear-gradient(var(--line) 1px, transparent 1px) 0 0/28px 28px,
+      linear-gradient(90deg, var(--line) 1px, transparent 1px) 0 0/28px 28px,
+      var(--card);
+    background-blend-mode:normal;
+    cursor:grab;
+  }
+  .canvas-viewport.dragging{cursor:grabbing;}
+  .canvas-inner{
+    position:absolute;
+    top:0;
+    left:0;
+    transform-origin:0 0;
+  }
+  .canvas-toolbar{
+    position:absolute;
+    top:12px;
+    right:12px;
+    z-index:4;
+    display:flex;
+    gap:6px;
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:5px;
+  }
+  .canvas-toolbar button{
+    width:30px;
+    height:30px;
+    border:none;
+    background:transparent;
+    border-radius:6px;
+    font-size:16px;
+    cursor:pointer;
+    color:var(--ink);
+  }
+  .canvas-toolbar button:hover{background:var(--bg);}
+  .canvas-hint{
+    position:absolute;
+    bottom:12px;
+    left:12px;
+    z-index:4;
+    font-size:12px;
+    color:var(--ink-soft);
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:6px;
+    padding:5px 10px;
+  }
+  .canvas-svg{position:absolute; top:0; left:0; overflow:visible;}
+  .canvas-node{
+    position:absolute;
+    box-sizing:border-box;
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:10px;
+  }
+  .canvas-node.domain-node, .canvas-node.area-node{
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    padding:8px 14px;
+    border-left:4px solid var(--gap-empty);
+  }
+  .canvas-node.domain-node.dev, .canvas-node.area-node.dev{border-left-color:var(--dev);}
+  .canvas-node.domain-node.plat, .canvas-node.area-node.plat{border-left-color:var(--plat);}
+  .canvas-node.domain-node.data, .canvas-node.area-node.data{border-left-color:var(--data);}
+  .canvas-node.domain-node .title{
+    font-family:Georgia,"Iowan Old Style","Palatino Linotype",serif;
+    font-size:15px;
+    font-weight:600;
+    line-height:1.2;
+  }
+  .canvas-node.domain-node .sub, .canvas-node.area-node .sub{
+    font-size:11.5px;
+    color:var(--ink-soft);
+    margin-top:2px;
+  }
+  .canvas-node.area-node .title{font-size:13px; font-weight:600;}
+  .canvas-node.team-node{
+    padding:14px 16px;
+    border-left:4px solid var(--gap-empty);
+  }
+  .canvas-node.team-node.dev{border-left-color:var(--dev);}
+  .canvas-node.team-node.plat{border-left-color:var(--plat);}
+  .canvas-node.team-node.data{border-left-color:var(--data);}
+  .canvas-node.team-node h3{margin:0 0 10px; font-size:14px; font-weight:600;}
+  .canvas-node.dimmed{opacity:0.18;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>Who owns what</h1>
+    <p>Product area and team stakeholders across Developer Services, Platform and Data Services — synced live from Notion. Anything marked “not assigned” is still being mapped — it’s open, not missing on purpose. Click a card to flip it and see the full engineering team.</p>
+  </header>
+
+  <div class="legend">
+    <span><span class="dot pm"></span>PM</span>
+    <span><span class="dot em"></span>EM</span>
+    <span><span class="dot design"></span>Design</span>
+    <span><span class="dot tw"></span>TW</span>
+  </div>
+
+  <div class="controls">
+    <input id="search" type="text" placeholder="Search team, product area, or a name…">
+    <button class="chip" data-domain="all" aria-pressed="true">All domains</button>
+    <button class="chip" data-domain="Developer Services" aria-pressed="false">Developer Services</button>
+    <button class="chip" data-domain="Platform" aria-pressed="false">Platform</button>
+    <button class="chip" data-domain="Data Services" aria-pressed="false">Data Services</button>
+    <div class="view-switch">
+      <button data-view="cards" aria-pressed="true">Cards</button>
+      <button data-view="tree" aria-pressed="false">Tree</button>
+      <button data-view="canvas" aria-pressed="false">Canvas</button>
+    </div>
+  </div>
+
+  <div class="stat" id="stat"></div>
+
+  <div id="cardView"></div>
+  <div id="treeView"></div>
+  <div id="canvasView">
+    <div class="canvas-viewport" id="canvasViewport">
+      <div class="canvas-inner" id="canvasInner"></div>
+      <div class="canvas-toolbar">
+        <button id="zoomIn" title="Zoom in">+</button>
+        <button id="zoomOut" title="Zoom out">−</button>
+        <button id="zoomReset" title="Fit to screen">⤢</button>
+      </div>
+      <div class="canvas-hint">Drag to pan · scroll to zoom</div>
+    </div>
+  </div>
+  <div class="empty-state" id="emptyState">No teams match that search.</div>
+
+</div>
+
+<script>
+let rows = [];
+let avatars = {};
+
+const domainClass = { "Developer Services":"dev", "Platform":"plat", "Data Services":"data" };
+
+async function loadData(){
+  statEl.textContent = 'Loading from Notion…';
+  try {
+    const res = await fetch('/api/stakeholders');
+    if(!res.ok) throw new Error('API returned ' + res.status);
+    const data = await res.json();
+    const people = data.people || {};
+
+    function nameOf(id){
+      if(!id) return '';
+      const p = people[id];
+      return (p && p.name) ? p.name : '';
+    }
+
+    rows = (data.rows || []).map(r => ({
+      domain: r.domain, domainLeader: nameOf(r.domainLeader),
+      area: r.area, director: nameOf(r.director),
+      team: r.team,
+      pm: nameOf(r.pm), em: nameOf(r.em), design: nameOf(r.design), tw: nameOf(r.tw),
+      members: (r.members || []).map(nameOf).filter(Boolean),
+      memberCount: r.memberCount,
+      jiraUrl: r.jiraUrl || null
+    }));
+
+    avatars = {};
+    Object.values(people).forEach(p => {
+      if(p.name && p.avatarUrl) avatars[p.name] = p.avatarUrl;
+    });
+
+    render();
+  } catch (err) {
+    statEl.textContent = 'Could not load data from Notion — showing nothing.';
+    console.error('Failed to load /api/stakeholders', err);
+  }
+}
+
+
+const cardView = document.getElementById('cardView');
+const treeView = document.getElementById('treeView');
+const statEl = document.getElementById('stat');
+const emptyState = document.getElementById('emptyState');
+let activeDomain = 'all';
+let query = '';
+let activeView = 'cards';
+const expanded = new Set(); // manually opened tree node keys
+
+function roleHtml(label, value, roleKey){
+  const empty = !value;
+  const img = !empty && avatars[value]
+    ? `<img class="avatar ${roleKey}" src="${avatars[value]}" alt="${value}" loading="lazy">`
+    : `<span class="avatar-empty ${roleKey}"></span>`;
+  return `<div class="role-row">
+    <span class="role-label ${roleKey}">${label}</span>
+    ${img}
+    <span class="role-name${empty?' empty':''}">${empty ? 'not assigned' : value}</span>
+  </div>`;
+}
+
+function stackHtml(row){
+  const roleOrder = [['pm',row.pm],['em',row.em],['design',row.design],['tw',row.tw]].filter(([,v]) => v);
+  if(roleOrder.length === 0) return `<span class="stack"><span class="avatar-empty"></span></span>`;
+  return `<span class="stack">${roleOrder.map(([key,p]) =>
+    avatars[p] ? `<img class="${key}" src="${avatars[p]}" alt="${p}" loading="lazy">` : `<span class="avatar-empty ${key}"></span>`
+  ).join('')}</span>`;
+}
+
+function matches(row){
+  if(activeDomain !== 'all' && row.domain !== activeDomain) return false;
+  if(!query) return true;
+  const hay = [row.domain,row.domainLeader,row.area,row.director,row.team,row.pm,row.em,row.design,row.tw,...(row.members||[])].join(' ').toLowerCase();
+  return hay.includes(query);
+}
+
+function engStackHtml(row){
+  const members = row.members || [];
+  if(members.length === 0){
+    return `<span class="eng-team-empty">No team members listed</span>`;
+  }
+  const PREVIEW_CAP = 6;
+  const shown = members.slice(0, PREVIEW_CAP);
+  const overflow = members.length - shown.length;
+  const avatarsHtml = shown.map(name =>
+    avatars[name] ? `<img src="${avatars[name]}" alt="${name}" loading="lazy">` : `<span class="avatar-empty"></span>`
+  ).join('');
+  const overflowHtml = overflow > 0 ? `<span class="eng-overflow">+${overflow}</span>` : '';
+  return `<span class="eng-stack">${avatarsHtml}${overflowHtml}</span>`;
+}
+
+function backFaceHtml(row){
+  const members = row.members || [];
+  const chips = members.length > 0
+    ? `<div class="members-list">${members.map(name => {
+        const img = avatars[name]
+          ? `<img class="member-avatar" src="${avatars[name]}" alt="${name}" loading="lazy">`
+          : `<span class="member-avatar-empty"></span>`;
+        return `<span class="member-chip">${img}<span>${name}</span></span>`;
+      }).join('')}</div>`
+    : `<span class="eng-team-empty">No team members listed</span>`;
+  const jira = row.jiraUrl
+    ? `<a class="jira-link" href="${row.jiraUrl}" target="_blank" rel="noopener">View Jira board →</a>`
+    : `<span class="eng-team-empty">No Jira board linked</span>`;
+  return `<div class="back-head">
+      <h3>${row.team}</h3>
+      <span class="back-sub">Engineering team${members.length ? ` · ${members.length}` : ''}</span>
+    </div>
+    ${chips}
+    <div class="back-footer">${jira}<span class="flip-cue" aria-hidden="true">↻ flip back</span></div>`;
+}
+
+const flippedCards = new Set(); // team keys currently showing their back face
+
+function renderCards(){
+  const domainsOrder = ["Developer Services","Platform","Data Services"];
+  let visibleCount = 0;
+  let html = '';
+
+  domainsOrder.forEach(domainName => {
+    const domainRows = rows.filter(r => r.domain === domainName);
+    const shown = domainRows.filter(matches);
+    if(shown.length === 0) return;
+    visibleCount += shown.length;
+
+    const leader = domainRows[0].domainLeader;
+    html += `<section class="domain ${domainClass[domainName]}">
+      <div class="domain-head">
+        <h2>${domainName}</h2>
+        <span class="lead">led by ${leader}</span>
+      </div>`;
+
+    // Flat grid per domain: keep teams from the same product area adjacent,
+    // but show no area sub-headings. Area + director live on each card.
+    const areaOrder = [...new Set(domainRows.map(r => r.area))];
+    const ordered = areaOrder.flatMap(a => domainRows.filter(r => r.area === a));
+
+    html += `<div class="teams">`;
+    ordered.forEach(row => {
+      const visible = matches(row);
+      const key = `${domainName}›${row.area}›${row.team}`;
+      const isFlipped = flippedCards.has(key);
+      html += `<div class="team${visible ? '' : ' dimmed'}${isFlipped ? ' flipped' : ''}" data-team-key="${key}" role="button" tabindex="${visible ? 0 : -1}" aria-pressed="${isFlipped}" aria-label="Flip ${row.team} card">
+        <div class="team-inner">
+          <div class="team-face team-front">
+            <h3>${row.team}</h3>
+            <div class="area-line">
+              ${row.area ? `<span class="area-chip">${row.area}</span>` : ''}
+              ${row.director ? `<span class="led-by">led by ${row.director}</span>` : ''}
+            </div>
+            ${roleHtml('PM', row.pm, 'pm')}
+            ${roleHtml('EM', row.em, 'em')}
+            ${roleHtml('Design', row.design, 'design')}
+            ${roleHtml('TW', row.tw, 'tw')}
+            <div class="eng-team-row">
+              <span class="role-label">Eng Team</span>
+              ${engStackHtml(row)}
+              <span class="flip-cue" aria-hidden="true">↻</span>
+            </div>
+          </div>
+          <div class="team-face team-back">
+            ${backFaceHtml(row)}
+          </div>
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+
+    html += `</section>`;
+  });
+
+  cardView.innerHTML = html;
+  return visibleCount;
+}
+
+function renderTree(){
+  const domainsOrder = ["Developer Services","Platform","Data Services"];
+  const searching = query.length > 0;
+  let visibleCount = 0;
+  let html = '';
+
+  domainsOrder.forEach(domainName => {
+    const domainRows = rows.filter(r => r.domain === domainName);
+    const shown = domainRows.filter(matches);
+    if(shown.length === 0) return;
+    visibleCount += shown.length;
+
+    const dKey = domainName;
+    const dOpen = searching ? true : expanded.has(dKey);
+    const leader = domainRows[0].domainLeader;
+
+    html += `<div class="tree-node ${domainClass[domainName]}${dOpen?' open':''}" data-level="0" data-key="${dKey}">
+      <div class="tree-row" data-toggle="${dKey}">
+        <span class="chevron"></span>
+        <span class="label">${domainName}</span>
+        <span class="meta">led by ${leader} · ${shown.length} team${shown.length===1?'':'s'}</span>
+      </div>
+      <div class="tree-children">`;
+
+    const areas = [...new Set(domainRows.map(r => r.area))];
+    areas.forEach(areaName => {
+      const areaRows = domainRows.filter(r => r.area === areaName);
+      const areaShown = areaRows.filter(matches);
+      if(areaShown.length === 0) return;
+      const director = areaRows[0].director;
+      const aKey = dKey + '›' + areaName;
+      const aOpen = searching ? true : expanded.has(aKey);
+
+      html += `<div class="tree-node${aOpen?' open':''}" data-level="1" data-key="${aKey}">
+        <div class="tree-row" data-toggle="${aKey}">
+          <span class="chevron"></span>
+          <span class="label">${areaName}</span>
+          <span class="meta">director: ${director}</span>
+        </div>
+        <div class="tree-children">`;
+
+      areaRows.forEach(row => {
+        const visible = matches(row);
+        const tKey = aKey + '›' + row.team;
+        const tOpen = searching ? true : expanded.has(tKey);
+        html += `<div class="tree-node${tOpen?' open':''}${visible?'':' dimmed'}" data-level="2" data-key="${tKey}">
+          <div class="tree-row" data-toggle="${tKey}">
+            <span class="chevron"></span>
+            <span class="label">${row.team}</span>
+            ${stackHtml(row)}
+          </div>
+          <div class="tree-children">
+            <div class="team-detail">
+              ${roleHtml('PM', row.pm, 'pm')}
+              ${roleHtml('EM', row.em, 'em')}
+              ${roleHtml('Design', row.design, 'design')}
+              ${roleHtml('TW', row.tw, 'tw')}
+            </div>
+          </div>
+        </div>`;
+      });
+
+      html += `</div></div>`;
+    });
+
+    html += `</div></div>`;
+  });
+
+  treeView.innerHTML = html;
+  return visibleCount;
+}
+
+function buildCanvasLayout(){
+  const domainsOrder = ["Developer Services","Platform","Data Services"];
+  const TEAM_W=240, TEAM_H=178, TEAM_GAP=20;
+  const AREA_W=190, AREA_H=54, AREA_GAP=40;
+  const DOMAIN_W=210, DOMAIN_H=64, DOMAIN_GAP=70;
+  const ROW_GAP=90; // vertical gap between levels
+  const PAD=40;
+
+  const DOMAIN_Y = PAD;
+  const AREA_Y = DOMAIN_Y + DOMAIN_H + ROW_GAP;
+  const TEAM_Y = AREA_Y + AREA_H + ROW_GAP;
+
+  let x = PAD;
+  const nodes = [];
+  const lines = [];
+
+  domainsOrder.forEach(domainName => {
+    const domainRows = rows.filter(r => r.domain === domainName);
+    if(domainRows.filter(matches).length === 0) return;
+
+    const areas = [...new Set(domainRows.map(r => r.area))];
+    const areaAnchors = [];
+
+    areas.forEach(areaName => {
+      const areaRows = domainRows.filter(r => r.area === areaName);
+      const areaMatchingRows = areaRows.filter(matches);
+      if(areaMatchingRows.length === 0) return;
+
+      const teamXs = [];
+      areaMatchingRows.forEach(row => {
+        nodes.push({ type:'team', x, y:TEAM_Y, w:TEAM_W, h:TEAM_H, row, domainName });
+        teamXs.push(x);
+        x += TEAM_W + TEAM_GAP;
+      });
+      x -= TEAM_GAP;
+
+      const areaCenterX = (teamXs[0] + teamXs[teamXs.length-1] + TEAM_W) / 2 - AREA_W / 2;
+      nodes.push({ type:'area', x:areaCenterX, y:AREA_Y, w:AREA_W, h:AREA_H, name:areaName, director:areaRows[0].director, domainName });
+      areaAnchors.push({ x:areaCenterX, w:AREA_W });
+
+      teamXs.forEach(tx => {
+        const x1 = areaCenterX + AREA_W/2, y1 = AREA_Y + AREA_H;
+        const x2 = tx + TEAM_W/2, y2 = TEAM_Y;
+        lines.push({ x1, y1, x2, y2, domainName });
+      });
+
+      x += AREA_GAP;
+    });
+    x -= AREA_GAP;
+
+    if(areaAnchors.length === 0) return;
+    const domainCenterX = (areaAnchors[0].x + areaAnchors[areaAnchors.length-1].x + AREA_W) / 2 - DOMAIN_W / 2;
+    nodes.push({ type:'domain', x:domainCenterX, y:DOMAIN_Y, w:DOMAIN_W, h:DOMAIN_H, name:domainName, leader:domainRows[0].domainLeader });
+
+    areaAnchors.forEach(a => {
+      const x1 = domainCenterX + DOMAIN_W/2, y1 = DOMAIN_Y + DOMAIN_H;
+      const x2 = a.x + AREA_W/2, y2 = AREA_Y;
+      lines.push({ x1, y1, x2, y2, domainName });
+    });
+
+    x += DOMAIN_GAP;
+  });
+  x -= DOMAIN_GAP;
+
+  return { nodes, lines, width: x + PAD, height: TEAM_Y + TEAM_H + PAD };
+}
+
+function canvasNodeHtml(node){
+  const dCls = domainClass[node.domainName] || '';
+  if(node.type === 'domain'){
+    return `<div class="canvas-node domain-node ${dCls}" style="left:${node.x}px;top:${node.y}px;width:${node.w}px;height:${node.h}px">
+      <div class="title">${node.name}</div>
+      <div class="sub">led by ${node.leader}</div>
+    </div>`;
+  }
+  if(node.type === 'area'){
+    return `<div class="canvas-node area-node ${dCls}" style="left:${node.x}px;top:${node.y}px;width:${node.w}px;height:${node.h}px">
+      <div class="title">${node.name}</div>
+      <div class="sub">director: ${node.director}</div>
+    </div>`;
+  }
+  const row = node.row;
+  const visible = matches(row);
+  return `<div class="canvas-node team-node ${dCls}${visible?'':' dimmed'}" style="left:${node.x}px;top:${node.y}px;width:${node.w}px;height:${node.h}px">
+    <h3>${row.team}</h3>
+    ${roleHtml('PM', row.pm, 'pm')}
+    ${roleHtml('EM', row.em, 'em')}
+    ${roleHtml('Design', row.design, 'design')}
+    ${roleHtml('TW', row.tw, 'tw')}
+  </div>`;
+}
+
+const canvasView = document.getElementById('canvasView');
+const canvasViewport = document.getElementById('canvasViewport');
+const canvasInner = document.getElementById('canvasInner');
+let canvasScale = 0.4, canvasPanX = 20, canvasPanY = 20;
+let canvasLayoutSize = { width: 1000, height: 1000 };
+
+function applyCanvasTransform(){
+  canvasInner.style.transform = `translate(${canvasPanX}px, ${canvasPanY}px) scale(${canvasScale})`;
+}
+
+function clampScale(s){ return Math.min(2, Math.max(0.12, s)); }
+
+function fitCanvasToViewport(){
+  const vpRect = canvasViewport.getBoundingClientRect();
+  const scaleX = (vpRect.width - 40) / canvasLayoutSize.width;
+  const scaleY = (vpRect.height - 40) / canvasLayoutSize.height;
+  canvasScale = clampScale(Math.min(scaleX, scaleY, 0.6));
+  canvasPanX = (vpRect.width - canvasLayoutSize.width * canvasScale) / 2;
+  canvasPanY = 20;
+  applyCanvasTransform();
+}
+
+function renderCanvas(){
+  const layout = buildCanvasLayout();
+  canvasLayoutSize = { width: layout.width, height: layout.height };
+
+  const domainStroke = { "Developer Services":"#2F7A6B", "Platform":"#A8791C", "Data Services":"#7A4B6E" };
+  const lineSvg = layout.lines.map(l => {
+    const midY = (l.y1 + l.y2) / 2;
+    const stroke = domainStroke[l.domainName] || '#C7C3BB';
+    return `<path d="M ${l.x1} ${l.y1} C ${l.x1} ${midY}, ${l.x2} ${midY}, ${l.x2} ${l.y2}" fill="none" stroke="${stroke}" stroke-width="1.5" opacity="0.35"/>`;
+  }).join('');
+
+  const nodesHtml = layout.nodes.map(canvasNodeHtml).join('');
+
+  canvasInner.style.width = layout.width + 'px';
+  canvasInner.style.height = layout.height + 'px';
+  canvasInner.innerHTML = `<svg class="canvas-svg" width="${layout.width}" height="${layout.height}">${lineSvg}</svg>${nodesHtml}`;
+  applyCanvasTransform();
+
+  const visibleCount = layout.nodes.filter(n => n.type === 'team' && matches(n.row)).length;
+  return visibleCount;
+}
+
+// pan
+let isDragging = false, dragStartX = 0, dragStartY = 0, panStartX = 0, panStartY = 0;
+canvasViewport.addEventListener('pointerdown', e => {
+  isDragging = true;
+  canvasViewport.classList.add('dragging');
+  dragStartX = e.clientX; dragStartY = e.clientY;
+  panStartX = canvasPanX; panStartY = canvasPanY;
+});
+window.addEventListener('pointermove', e => {
+  if(!isDragging) return;
+  canvasPanX = panStartX + (e.clientX - dragStartX);
+  canvasPanY = panStartY + (e.clientY - dragStartY);
+  applyCanvasTransform();
+});
+window.addEventListener('pointerup', () => {
+  isDragging = false;
+  canvasViewport.classList.remove('dragging');
+});
+
+// zoom (wheel, centered on cursor)
+canvasViewport.addEventListener('wheel', e => {
+  e.preventDefault();
+  const rect = canvasViewport.getBoundingClientRect();
+  const cx = e.clientX - rect.left, cy = e.clientY - rect.top;
+  const worldX = (cx - canvasPanX) / canvasScale;
+  const worldY = (cy - canvasPanY) / canvasScale;
+  const newScale = clampScale(canvasScale * (1 - e.deltaY * 0.001));
+  canvasPanX = cx - worldX * newScale;
+  canvasPanY = cy - worldY * newScale;
+  canvasScale = newScale;
+  applyCanvasTransform();
+}, { passive:false });
+
+document.getElementById('zoomIn').addEventListener('click', () => {
+  canvasScale = clampScale(canvasScale * 1.2);
+  applyCanvasTransform();
+});
+document.getElementById('zoomOut').addEventListener('click', () => {
+  canvasScale = clampScale(canvasScale / 1.2);
+  applyCanvasTransform();
+});
+document.getElementById('zoomReset').addEventListener('click', fitCanvasToViewport);
+
+function render(){
+  const cardCount = renderCards();
+  const treeCount = renderTree();
+  const canvasCount = renderCanvas();
+  const visibleCount = activeView === 'cards' ? cardCount : activeView === 'tree' ? treeCount : canvasCount;
+  emptyState.style.display = visibleCount === 0 ? 'block' : 'none';
+  statEl.textContent = `${visibleCount} of ${rows.length} teams shown`;
+}
+
+document.querySelectorAll('.chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    document.querySelectorAll('.chip').forEach(c => c.setAttribute('aria-pressed','false'));
+    chip.setAttribute('aria-pressed','true');
+    activeDomain = chip.dataset.domain;
+    render();
+  });
+});
+
+let canvasFitted = false;
+document.querySelectorAll('.view-switch button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.view-switch button').forEach(b => b.setAttribute('aria-pressed','false'));
+    btn.setAttribute('aria-pressed','true');
+    activeView = btn.dataset.view;
+    cardView.style.display = activeView === 'cards' ? 'block' : 'none';
+    treeView.style.display = activeView === 'tree' ? 'block' : 'none';
+    canvasView.style.display = activeView === 'canvas' ? 'block' : 'none';
+    render();
+    if(activeView === 'canvas' && !canvasFitted){
+      fitCanvasToViewport();
+      canvasFitted = true;
+    }
+  });
+});
+
+treeView.addEventListener('click', e => {
+  const row = e.target.closest('.tree-row');
+  if(!row) return;
+  const key = row.dataset.toggle;
+  const node = row.parentElement;
+  if(expanded.has(key)){
+    expanded.delete(key);
+    node.classList.remove('open');
+  } else {
+    expanded.add(key);
+    node.classList.add('open');
+  }
+});
+
+function toggleCard(card){
+  const key = card.dataset.teamKey;
+  const flipped = card.classList.toggle('flipped');
+  card.setAttribute('aria-pressed', String(flipped));
+  if(flipped) flippedCards.add(key); else flippedCards.delete(key);
+}
+
+cardView.addEventListener('click', e => {
+  if(e.target.closest('a')) return;           // let the Jira link just open
+  const card = e.target.closest('.team');
+  if(card) toggleCard(card);
+});
+
+cardView.addEventListener('keydown', e => {
+  if(e.key !== 'Enter' && e.key !== ' ') return;
+  if(e.target.closest('a')) return;
+  const card = e.target.closest('.team');
+  if(!card || e.target !== card) return;
+  e.preventDefault();
+  toggleCard(card);
+});
+
+document.getElementById('search').addEventListener('input', e => {
+  query = e.target.value.trim().toLowerCase();
+  render();
+});
+
+loadData();
+setInterval(loadData, 5 * 60 * 1000); // stay reasonably fresh without a manual reload
+</script>
+</body>
+</html>
